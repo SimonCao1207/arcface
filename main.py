@@ -1,5 +1,7 @@
+import sys
 import timm
 import torch.optim as optim
+import numpy as np
 from tqdm import tqdm
 from data import *
 from loss import *
@@ -22,6 +24,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 lr = 0.01
 in_features = 2048
 out_features = num_classes 
+num_epochs = 1
 
 model_name = "resnet50d.ra4_e3600_r224_in1k"
 model = timm.create_model(model_name, pretrained=True, num_classes=0).to(device)
@@ -32,11 +35,21 @@ arcface_loss = ArcLoss(in_features, out_features)
 train_data = Shopee(train_df, path=BASE)
 train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
 
-for step, (train_features, labels) in tqdm(enumerate(train_loader), desc= 'Training', leave=False, total=len(train_loader)):
-    out = model(train_features).to(device)
-    embeddings = F.normalize(out, dim=1, p=2)
-    one_hot_labels = convert_to_one_hot(labels).to(device)
-    loss = arcface_loss(embeddings, one_hot_labels)
-    optimizer.zero_grad()  
-    loss.backward()    
-    optimizer.step()
+for epoch in range(num_epochs):
+    model.train()
+    running_loss = []
+    for step, (train_features, labels) in tqdm(enumerate(train_loader), desc= 'Training', leave=False, total=len(train_loader)):
+        out = model(train_features).to(device)
+        embeddings = F.normalize(out, dim=1, p=2)
+        one_hot_labels = convert_to_one_hot(labels).to(device)
+        loss = arcface_loss(embeddings, one_hot_labels)
+        optimizer.zero_grad()  
+        loss.backward()    
+        optimizer.step()
+        running_loss.append(loss.cpu().detach().numpy()) 
+        sys.stdout.write('\r')
+        sys.stdout.write("Epoch: {}/{} - Learning rate: {:.6f} - Min/Avg/Max train Loss: {:.6f}/{:.6f}/{:.6f}".format(epoch+1, num_epochs, optimizer.state_dict()['param_groups'][0]['lr'], min(running_loss), np.mean(running_loss), max(running_loss)))
+        sys.stdout.flush()
+        scheduler.step(epoch + step / len(train_loader))
+    mean_loss = np.mean(running_loss)
+    model.eval()
