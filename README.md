@@ -1,6 +1,6 @@
 # Implementation of ArcFace - Additive Angular Margin Loss
 
-[paper](!https://arxiv.org/pdf/1801.07698)
+[paper](https://arxiv.org/pdf/1801.07698)
 
 Datasets: 
 - Shopee (https://www.kaggle.com/competitions/shopee-product-matching/data)

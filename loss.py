@@ -1,3 +1,4 @@
+# https://github.com/yinguobing/arcface/blob/main/losses.py)
 
 from math import pi
 import torch.nn as nn
