@@ -6,18 +6,18 @@ from tqdm import tqdm
 from data import *
 from loss import *
 
+train_df = pd.read_csv("./data/train.csv")
+tmp = train_df.groupby("label_group")["posting_id"].agg("unique").to_dict()
+train_df["target"] = train_df.label_group.map(tmp)
+label_groups = torch.tensor(train_df.label_group.unique())
+num_classes = len(label_groups)
+
 def convert_to_one_hot(labels):
     # Convert to one-hot encoding
     label_indices = torch.tensor([torch.where(label_groups == label)[0].item() for label in labels])
     one_hot_labels = torch.zeros(len(labels), num_classes)
     one_hot_labels.scatter_(1, label_indices.unsqueeze(1), 1)
     return one_hot_labels
-
-train_df = pd.read_csv("./data/train.csv")
-tmp = train_df.groupby("label_group")["posting_id"].agg("unique").to_dict()
-train_df["target"] = train_df.label_group.map(tmp)
-label_groups = train_df.label_group.unique()
-num_classes = len(label_groups)
 
 BASE = "./data/train_images"
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -39,17 +39,16 @@ for epoch in range(num_epochs):
     model.train()
     running_loss = []
     for step, (train_features, labels) in tqdm(enumerate(train_loader), desc= 'Training', leave=False, total=len(train_loader)):
-        out = model(train_features).to(device)
+        out = model(train_features.to(device))
         embeddings = F.normalize(out, dim=1, p=2)
         one_hot_labels = convert_to_one_hot(labels).to(device)
         loss = arcface_loss(embeddings, one_hot_labels)
         optimizer.zero_grad()  
         loss.backward()    
         optimizer.step()
-        running_loss.append(loss.cpu().detach().numpy()) 
-        sys.stdout.write('\r')
-        sys.stdout.write("Epoch: {}/{} - Learning rate: {:.6f} - Min/Avg/Max train Loss: {:.6f}/{:.6f}/{:.6f}".format(epoch+1, num_epochs, optimizer.state_dict()['param_groups'][0]['lr'], min(running_loss), np.mean(running_loss), max(running_loss)))
-        sys.stdout.flush()
+        loss_item = loss.cpu().detach().numpy()
+        running_loss.append(loss_item) 
+        print("Epoch: {}/{} - Learning rate: {:.6f} - Min/Avg/Max train Loss: {:.6f}/{:.6f}/{:.6f}".format(epoch+1, num_epochs, optimizer.state_dict()['param_groups'][0]['lr'], min(running_loss), np.mean(running_loss), max(running_loss)))
         scheduler.step(epoch + step / len(train_loader))
     mean_loss = np.mean(running_loss)
     model.eval()

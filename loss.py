@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class ArcLoss(nn.Module):
     """ 
         Additive angular margin loss
@@ -13,7 +14,7 @@ class ArcLoss(nn.Module):
         super(ArcLoss, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.FloatTensor(out_features, in_features))
+        self.weight = nn.Parameter(torch.FloatTensor(out_features, in_features)).to(device)
         nn.init.xavier_uniform_(self.weight)
 
         self.margin = margin
@@ -43,6 +44,6 @@ class ArcLoss(nn.Module):
         logits = (cos_t + cos_t_margin_onehot - cos_t_onehot) * self.scale
 
         # compute the softmax cross-entropy loss
-        losses = F.cross_entropy(logits, torch.argmax(mask, dim=1))
+        losses = F.cross_entropy(logits, mask)
 
         return losses
